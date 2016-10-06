@@ -1,6 +1,6 @@
 # CUDA based FP-Growth Algorithm Implementation
 
-This project is an implementation of the FP-Growth algorihm for Frequent Item Set mining using CUDA parallelism with the goal to boost its performance and apply it to large data sets.
+This project is an implementation of the FP-Growth algorihm for Frequent Itemset Mining (FIM) using CUDA parallelism with the goal to boost its performance and apply it to large data sets.
 
 The implementation will be based on the methods outlined in the following papers:
 
