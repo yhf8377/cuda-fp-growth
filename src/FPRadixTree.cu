@@ -53,16 +53,16 @@ size_type count_transactions( index_type i, index_type j, const size_type* __res
     return n;
 }
 
-// Each inner node has 9x cuda_int elements and each leaf node has 2x
-#define InnerNodesSize( n_trans ) ( sizeof( cuda_int ) * 9 * ( n_trans - 1 ) )
-#define LeafNodesSize( n_trans ) ( sizeof( cuda_int ) * 2 * n_trans )
-#define RadixTreeBufferSize( n_trans ) ( sizeof( cuda_int ) * ( 9 * ( n_trans - 1 ) + 2 * n_trans ) )
+// Each inner node has 9x cuda_uint elements and each leaf node has 2x
+#define InnerNodesSize( n_trans ) ( sizeof( cuda_uint ) * 9 * ( n_trans - 1 ) )
+#define LeafNodesSize( n_trans ) ( sizeof( cuda_uint ) * 2 * n_trans )
+#define RadixTreeBufferSize( n_trans ) ( sizeof( cuda_uint ) * ( 9 * ( n_trans - 1 ) + 2 * n_trans ) )
 
 __global__
 void construct_radix_tree( const BitBlock* __restrict__ trans_map, const size_type* __restrict__ trans_counts,
                            size_type n_trans, size_type blocks_per_trans, InnerNode* inner_nodes, LeafNode* leaf_nodes )
 {
-    extern __shared__ cuda_int buffer[];
+    extern __shared__ cuda_uint buffer[];
     if ( threadIdx.x == 0 ) memset( buffer, 0, RadixTreeBufferSize( n_trans ) );
     __syncthreads();
 

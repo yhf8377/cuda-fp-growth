@@ -40,18 +40,19 @@ inline void cudaAssert( cudaError_t code, const std::string& file, int line, con
 }
 
 // The default data type for use with CUDA
-using cuda_int = unsigned int;
+using cuda_int = int;
+using cuda_uint = unsigned int;
 using cuda_real = float;
 
-using Item = cuda_int;
+using Item = cuda_uint;
 using Items = std::vector<Item>;
 using DItems = thrust::device_vector<Item>;
 
-using size_type = cuda_int;
+using size_type = cuda_uint;
 using Sizes = std::vector<size_type>;
 using DSizes = thrust::device_vector<size_type>;
 
-using index_type = cuda_int;
+using index_type = cuda_uint;
 using Indices = std::vector<index_type>;
 using DIndices = thrust::device_vector<index_type>;
 

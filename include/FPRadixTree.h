@@ -23,16 +23,16 @@ namespace cuda_fp_growth {
 
 struct InnerNode
 {
-    cuda_int left_is_leaf, right_is_leaf;
-    cuda_int range_start, range_end, left_idx, right_idx, parent_idx;
-    cuda_int prefix_length, trans_count;
+    cuda_uint left_is_leaf, right_is_leaf;
+    cuda_uint range_start, range_end, left_idx, right_idx, parent_idx;
+    cuda_uint prefix_length, trans_count;
 };
 using InnerNodes = std::vector<InnerNode>;
 
 struct LeafNode
 {
-    cuda_int parent_idx;
-    cuda_int trans_count;
+    cuda_uint parent_idx;
+    cuda_uint trans_count;
 };
 using LeafNodes = std::vector<LeafNode>;
 
