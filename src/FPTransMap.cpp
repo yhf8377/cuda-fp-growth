@@ -24,6 +24,12 @@
 namespace cuda_fp_growth {
 
 FPTransMap::FPTransMap( Items::const_iterator trans_begin, Indices::const_iterator indices_begin, Sizes::const_iterator sizes_begin, size_type n_trans, size_type min_support )
+    : FPTransMap( trans_begin, indices_begin, sizes_begin, n_trans, NullItem, min_support )
+{
+}
+
+FPTransMap::FPTransMap( Items::const_iterator trans_begin, Indices::const_iterator indices_begin, Sizes::const_iterator sizes_begin, size_type n_trans, const Item& rhs, size_type min_support )
+    : _rhs( rhs )
 {
     // determine number of blocks required for the given transaction count
     assert( std::numeric_limits<BitBlock>::digits == 8 );
@@ -34,7 +40,7 @@ FPTransMap::FPTransMap( Items::const_iterator trans_begin, Indices::const_iterat
     Items freq_items;
     Sizes freq_items_counts;
     BitBlocks trans_map;
-    build_transaction_map( trans_begin, indices_begin, sizes_begin, n_trans, min_support, freq_items, freq_items_counts, trans_map );
+    build_transaction_map( trans_begin, indices_begin, sizes_begin, n_trans, rhs, min_support, freq_items, freq_items_counts, trans_map );
     _max_frequency = *( std::max_element( freq_items_counts.begin(), freq_items_counts.end() ) );
 
     // transpose items map into transactions map
@@ -52,7 +58,7 @@ FPTransMap::FPTransMap( Items::const_iterator trans_begin, Indices::const_iterat
     _trans_counts = DSizes( counts );
 }
 
-void FPTransMap::build_transaction_map( Items::const_iterator trans_begin, Indices::const_iterator indices_begin, Sizes::const_iterator sizes_begin, size_type n_trans, size_type min_support, Items& freq_items, Sizes& freq_items_counts, BitBlocks& bitmap )
+void FPTransMap::build_transaction_map( Items::const_iterator trans_begin, Indices::const_iterator indices_begin, Sizes::const_iterator sizes_begin, size_type n_trans, const Item& rhs, size_type min_support, Items& freq_items, Sizes& freq_items_counts, BitBlocks& bitmap )
 {
     // determine number of blocks required for the given transaction count
     assert( std::numeric_limits<BitBlock>::digits == 8 );
@@ -93,8 +99,11 @@ void FPTransMap::build_transaction_map( Items::const_iterator trans_begin, Indic
 
     // sort frequent items
     std::sort( freq_items.begin(), freq_items.end(), [&]( const Item& item_a, const Item& item_b ) {
-        size_type count_a = counts.at( item_a ), count_b = counts.at( item_b );
-        return ( count_a < count_b ) || ( count_a == count_b && item_a < item_b );
+        if ( item_a != rhs && item_b != rhs ) {
+            size_type count_a = counts.at( item_a ), count_b = counts.at( item_b );
+            return ( count_a < count_b ) || ( count_a == count_b && item_a < item_b );
+        }
+        else return item_a == rhs;
     } );
 
     // copy frequency count and transaction map in order

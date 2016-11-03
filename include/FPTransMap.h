@@ -48,6 +48,8 @@ using Item = cuda_uint;
 using Items = std::vector<Item>;
 using DItems = thrust::device_vector<Item>;
 
+static const Item NullItem = std::numeric_limits<Item>::max();
+
 using size_type = cuda_uint;
 using Sizes = std::vector<size_type>;
 using DSizes = thrust::device_vector<size_type>;
@@ -119,6 +121,27 @@ class FPTransMap
          *
          */
         FPTransMap( Items::const_iterator trans_begin, Indices::const_iterator indices_begin, Sizes::const_iterator sizes_begin, size_type n_trans, size_type min_support );
+
+        /** \brief Constructs a transaction bitmap from transaction data set for association rules mining
+         *
+         * \copydetails FPTransMap( Items::const_iterator, Indices::const_iterator, Sizes::const_iterator, size_type, size_type )
+         *
+         * For association rules mining, this constructor accepts an extra parameter:
+         *     - rhs: the right hand side item. This item will be placed at the begining of the transaction bits regardless its frequency so it will be mined after all other items.
+         *
+         * The definition of `min_support` is slight different from the one used for frequent pattern mining.
+         * For association rule mining the support for rule `A->B` is defined as `count(A)` rather than `count(AB)` as the case in frequent pattern mining.
+         *
+         * \param trans_begin iterator pointing to the start of the items vector
+         * \param indices_begin iterator pointing to the start of the indices vector
+         * \param sizes_begin iterator pointing to the start of the sizes vector
+         * \param n_trans total number of transactions
+         * \param rhs the item on the right hand side of an association rule. Currently only a single right hand side item is supported.
+         * \param min_support the minimum support required
+         *
+         */
+        FPTransMap( Items::const_iterator trans_begin, Indices::const_iterator indices_begin, Sizes::const_iterator sizes_begin, size_type n_trans, const Item& rhs, size_type min_support );
+
         virtual ~FPTransMap() = default;
 
         inline size_type size() const { return _trans_counts.size(); }
@@ -135,14 +158,17 @@ class FPTransMap
 
         inline size_type blocks_per_transaction() const { return _blocks_per_trans; }
 
+        inline const Item& rhs() const { return _rhs; }
+
     private:
+        const Item _rhs;
         DItems _freq_items;
         DSizes _freq_items_counts;
         DBitBlocks _trans_map;
         DSizes _trans_counts;
         size_type _blocks_per_trans, _max_frequency;
 
-        void build_transaction_map( Items::const_iterator trans_begin, Indices::const_iterator indices_begin, Sizes::const_iterator sizes_begin, size_type n_trans, size_type min_support, Items& freq_items, Sizes& freq_items_counts, BitBlocks& bitmap );
+        void build_transaction_map( Items::const_iterator trans_begin, Indices::const_iterator indices_begin, Sizes::const_iterator sizes_begin, size_type n_trans, const Item& rhs, size_type min_support, Items& freq_items, Sizes& freq_items_counts, BitBlocks& bitmap );
 
         void transpose_bitmap( BitBlocks& bitmap, size_type blocks_per_row );
 
