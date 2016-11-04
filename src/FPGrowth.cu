@@ -74,6 +74,7 @@ void parallel_mine_patterns( const InnerNode* __restrict__ inner_nodes, const Le
     index_type idx = threadIdx.x;
     if ( counts[ idx ] >= min_support ) {
         const Item* new_prefix = save_pattern( prefix, prefix_length, items[ idx ], counts[ idx ] );
+        __threadfence();
         if ( new_prefix != nullptr ) {
             FPHeaderTable sub_ht( trans_map, blocks_per_trans, inner_nodes, leaf_nodes, ht_data, min_support, idx );
             const cuda_uint* sub_ht_data = sub_ht.data();
@@ -105,6 +106,7 @@ void parallel_mine_rules( const InnerNode* __restrict__ inner_nodes, const LeafN
         if ( rhs_count >= min_support * min_confidence ) {
             cuda_real confidence = (cuda_real) rhs_count / lhs_count;
             const Item* new_prefix = save_rule( prefix, prefix_length, items[ idx ], lhs_count, confidence );
+            __threadfence();
             if ( new_prefix != nullptr ) {
                 parallel_mine_rules <<< 1, sub_ht.size() >>> ( inner_nodes, leaf_nodes, sub_ht.data(), trans_map, blocks_per_trans, new_prefix, prefix_length + 1, rhs_idx, min_support, min_confidence );
             }
