@@ -31,12 +31,22 @@ size_type pattern_count( const std::vector<cuda_uint>& buffer )
     return pattern_count;
 }
 
-bool pattern_exists( const std::vector<cuda_uint>& buffer, const std::vector<Item>& pattern, const size_type support )
+bool pattern_exists( const std::vector<cuda_uint>& buffer, const std::vector<Item>& pattern, const size_type support, const cuda_real confidence = 0.0f )
 {
     index_type i = 0;
     while ( i < buffer.size() ) {
         size_type length = buffer[ i ] / sizeof( cuda_uint );
-        if ( pattern.size() == length - 2 && buffer[ i + 1 ] == support && std::equal( pattern.begin(), pattern.end(), buffer.begin() + i + 2 ) ) return true;
+        size_type offset = ( confidence > 0.0f ? 3 : 2 );
+        bool exists = true;
+        exists &= ( pattern.size() == length - offset );
+        exists &= ( buffer[ i + 1 ] == support );
+        exists &= ( std::equal( pattern.begin(), pattern.end(), buffer.begin() + i + offset ) );
+        if ( confidence > 0.0f ) {
+            const cuda_uint* ptr = &buffer[ i + 2 ];
+            exists &= ( std::abs( *( reinterpret_cast<const cuda_real*>( ptr ) ) - confidence ) < 0.0001 );
+        }
+        if ( exists ) return true;
+
         i += ( buffer[i] / sizeof( cuda_uint ) );
     }
     return false;
@@ -63,12 +73,13 @@ TEST_CASE( "FPGrowth correctly functions", "[FPGrowth]" ) {
 
     // construct FPTransactionMap object
     size_type min_support = 3;
-    FPTransMap trans_map( trans.cbegin(), indices.cbegin(), sizes.cbegin(), indices.size(), min_support );
-    FPRadixTree radix_tree( trans_map );
-    FPHeaderTable ht( trans_map, radix_tree, min_support );
-    FPGrowth fp( trans_map, radix_tree, ht, min_support );
 
     SECTION( "FPGrowth correctly finds all frequent patterns") {
+        FPTransMap trans_map( trans.cbegin(), indices.cbegin(), sizes.cbegin(), indices.size(), min_support );
+        FPRadixTree radix_tree( trans_map );
+        FPHeaderTable ht( trans_map, radix_tree, min_support );
+        FPGrowth fp( trans_map, radix_tree, ht, min_support );
+
         std::vector<cuda_uint> buffer( 1024 );
         size_type buffer_size = sizeof( cuda_uint ) * buffer.size();
         fp.mine_frequent_patterns( &buffer[0], buffer_size );
@@ -88,11 +99,31 @@ TEST_CASE( "FPGrowth correctly functions", "[FPGrowth]" ) {
         CHECK( pattern_exists( buffer, { f, a }, 3 ) );
         CHECK( pattern_exists( buffer, { c, a }, 3 ) );
         CHECK( pattern_exists( buffer, { f, c }, 3 ) );
-        CHECK( pattern_exists( buffer, { f, m, a }, 3 ) );
+        CHECK( pattern_exists( buffer, { c, m, a }, 3 ) );
         CHECK( pattern_exists( buffer, { f, m, a }, 3 ) );
         CHECK( pattern_exists( buffer, { f, c, m }, 3 ) );
         CHECK( pattern_exists( buffer, { f, c, a }, 3 ) );
         CHECK( pattern_exists( buffer, { f, c, m, a }, 3 ) );
+    }
+
+    SECTION( "FPGrowth correctly finds all association rules") {
+        Item rhs = m;
+        FPTransMap trans_map( trans.cbegin(), indices.cbegin(), sizes.cbegin(), indices.size(), rhs, min_support );
+        FPRadixTree radix_tree( trans_map );
+        FPHeaderTable ht( trans_map, radix_tree, min_support );
+        FPGrowth fp( trans_map, radix_tree, ht, min_support );
+
+        std::vector<cuda_uint> buffer( 1024 );
+        size_type buffer_size = sizeof( cuda_uint ) * buffer.size();
+        fp.mine_association_rules( 1.0, &buffer[0], buffer_size );
+        buffer.resize( buffer_size / sizeof( cuda_uint ) );
+
+        REQUIRE( pattern_count( buffer ) == 5 );
+        CHECK( pattern_exists( buffer, { a }, 3, 1.0 ) );
+        CHECK( pattern_exists( buffer, { c, a }, 3, 1.0 ) );
+        CHECK( pattern_exists( buffer, { f, a }, 3, 1.0 ) );
+        CHECK( pattern_exists( buffer, { f, c }, 3, 1.0 ) );
+        CHECK( pattern_exists( buffer, { f, c, a }, 3, 1.0 ) );
     }
 }
 
