@@ -25,7 +25,7 @@ namespace cuda_fp_growth {
 enum class NodeType : cuda_uint { InnerNode = 0, LeafNode = 1 };
 using NodeTypes = std::vector<NodeType>;
 
-#define HTBufferSize( ht_size, ia_size ) ( 2 * sizeof( size_type) + ( sizeof( Item ) + sizeof( size_type ) + sizeof( size_type ) + ( sizeof( size_type ) + sizeof( index_type ) + sizeof( NodeType ) ) * ia_size ) * ht_size )
+#define HTBufferSize( ht_size, ia_size ) ( 2 * sizeof( size_type) + ( sizeof( Item ) + sizeof( size_type ) + sizeof( size_type ) + ( sizeof( index_type ) + sizeof( size_type ) + sizeof( NodeType ) ) * ia_size ) * ht_size )
 
 class FPHeaderTable
 {
@@ -37,7 +37,7 @@ class FPHeaderTable
          *
          */
         __host__
-        FPHeaderTable( const FPTransMap& trans_map, const FPRadixTree& radix_tree, size_type min_support );
+        FPHeaderTable( const FPTransMap& trans_map, const FPRadixTree& radix_tree, const size_type min_support );
 
         /** \brief Constructs sub header table for a node in parent header table
          *
@@ -49,9 +49,9 @@ class FPHeaderTable
          *
          */
         __device__
-        FPHeaderTable( const BitBlock* __restrict__ trans_map, size_type blocks_per_trans,
+        FPHeaderTable( const BitBlock* __restrict__ trans_map, const size_type blocks_per_trans,
                        const InnerNode* __restrict__ inner_nodes, const LeafNode* __restrict__ leaf_nodes,
-                       const cuda_uint* __restrict__ parent_ht, size_type min_support, index_type node_idx );
+                       const cuda_uint* __restrict__ parent_ht, const size_type min_support, const index_type node_idx );
 
         __host__ __device__
         ~FPHeaderTable();
@@ -87,14 +87,12 @@ class FPHeaderTable
         cuda_uint* _data;
         size_type _ht_size, _ia_size;
 
-#ifdef UNIT_TEST
         Item* _items;
         size_type* _counts;
         size_type* _ia_sizes;
         index_type* _ia_arrays;
         size_type* _node_counts;
         NodeType* _node_types;
-#endif // UNIT_TEST
 };
 
 }

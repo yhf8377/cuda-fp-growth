@@ -72,7 +72,37 @@ void test_sub_header_table( const FPTransMap& trans_map, const FPRadixTree& radi
     std::transform( current, current + ht_size * ia_size, node_types.begin(), []( cuda_uint value ) { return static_cast<NodeType>( value ); } );
 }
 
+void sort_results( const Sizes& ia_sizes, Indices& ia_arrays, Sizes& node_counts, NodeTypes& node_types )
+{
+    for ( index_type i = 0; i < ia_sizes.size(); ++i ) {
+        size_type ia_size = ia_sizes[ i ];
+        size_type begin_pos = i * ia_size;
+
+        std::vector<index_type> order( ia_size );
+        std::iota( order.begin(), order.end(), begin_pos );
+        std::sort( order.begin(), order.end(), [&]( index_type idx_a, index_type idx_b ) {
+            NodeType type_a = node_types[ idx_a ], type_b = node_types[ idx_b ];
+            index_type ia_a = ia_arrays[ idx_a ], ia_b = ia_arrays[ idx_b ];
+            return ( type_a < type_b ) || ( type_a == type_b && ia_a < ia_b );
+        } );
+
+        Indices ordered_ia_arrays( ia_size );
+        Sizes ordered_node_counts( ia_size );
+        NodeTypes ordered_node_types( ia_size );
+        for ( index_type i = 0; i < order.size(); ++i ) {
+            ordered_ia_arrays[ i ] = ia_arrays[ order[ i ] ];
+            ordered_node_counts[ i ] = node_counts[ order[ i ] ];
+            ordered_node_types[ i ] = node_types[ order[ i ] ];
+        }
+        std::move( ordered_ia_arrays.begin(), ordered_ia_arrays.end(), ia_arrays.begin() + begin_pos );
+        std::move( ordered_node_counts.begin(), ordered_node_counts.end(), node_counts.begin() + begin_pos );
+        std::move( ordered_node_types.begin(), ordered_node_types.end(), node_types.begin() + begin_pos );
+    }
+}
+
 TEST_CASE( "FPHeaderTable correctly functions", "[FPHeaderTable]" ) {
+    cudaDeviceReset();
+
     const Item a = 0, b = 1, c = 2, d = 3, e = 4, f = 5, g = 6, h = 7, i = 8, j = 9, k = 10, l = 11, m = 12, n = 13,
                o = 14, p = 15, q = 16, r = 17, s = 18, t = 19, u = 20, v = 21, w = 22, x = 23, y = 24, z = 25;
 
@@ -124,7 +154,7 @@ TEST_CASE( "FPHeaderTable correctly functions", "[FPHeaderTable]" ) {
          */
 
         REQUIRE( header_table.size() == 6 );
-        REQUIRE( header_table.ia_size() == 3 );
+        REQUIRE( header_table.ia_size() == 4 );
 
         Items items = header_table.get_items();
         REQUIRE( items.size() == 6 );
@@ -159,81 +189,86 @@ TEST_CASE( "FPHeaderTable correctly functions", "[FPHeaderTable]" ) {
 
         ia_array = header_table.get_ia_array( 0 );
         REQUIRE( ia_array.size() == 1 );
-        CHECK( ia_array[ 0 ] == 2 );
         node_counts = header_table.get_node_counts( 0 );
         REQUIRE( node_counts.size() == 1 );
-        CHECK( node_counts[ 0 ] == 3 );
         node_type = header_table.get_node_types( 0 );
         REQUIRE( node_type.size() == 1 );
+        CHECK( ia_array[ 0 ] == 2 );
+        CHECK( node_counts[ 0 ] == 3 );
         CHECK( node_type[ 0 ] == NodeType::InnerNode );
 
         ia_array = header_table.get_ia_array( 1 );
         REQUIRE( ia_array.size() == 2 );
-        CHECK( ia_array[ 0 ] == 1 );
-        CHECK( ia_array[ 1 ] == 3 );
         node_counts = header_table.get_node_counts( 1 );
         REQUIRE( node_counts.size() == 2 );
-        CHECK( node_counts[ 0 ] == 2 );
-        CHECK( node_counts[ 1 ] == 1 );
         node_type = header_table.get_node_types( 1 );
         REQUIRE( node_type.size() == 2 );
+        sort_results( { 4 }, ia_array, node_counts, node_type );
+        CHECK( ia_array[ 0 ] == 1 );
+        CHECK( ia_array[ 1 ] == 3 );
+        CHECK( node_counts[ 0 ] == 2 );
+        CHECK( node_counts[ 1 ] == 1 );
         CHECK( node_type[ 0 ] == NodeType::InnerNode );
         CHECK( node_type[ 1 ] == NodeType::LeafNode );
 
         ia_array = header_table.get_ia_array( 2 );
         REQUIRE( ia_array.size() == 2 );
-        CHECK( ia_array[ 0 ] == 2 );
-        CHECK( ia_array[ 1 ] == 3 );
         node_counts = header_table.get_node_counts( 2 );
         REQUIRE( node_counts.size() == 2 );
-        CHECK( node_counts[ 0 ] == 2 );
-        CHECK( node_counts[ 1 ] == 1 );
         node_type = header_table.get_node_types( 2 );
         REQUIRE( node_type.size() == 2 );
+        sort_results( { 4 }, ia_array, node_counts, node_type );
+        CHECK( ia_array[ 0 ] == 2 );
+        CHECK( ia_array[ 1 ] == 3 );
+        CHECK( node_counts[ 0 ] == 2 );
+        CHECK( node_counts[ 1 ] == 1 );
         CHECK( node_type[ 0 ] == NodeType::LeafNode );
         CHECK( node_type[ 1 ] == NodeType::LeafNode );
 
         ia_array = header_table.get_ia_array( 3 );
         REQUIRE( ia_array.size() == 2 );
-        CHECK( ia_array[ 0 ] == 1 );
-        CHECK( ia_array[ 1 ] == 2 );
         node_counts = header_table.get_node_counts( 3 );
         REQUIRE( node_counts.size() == 2 );
-        CHECK( node_counts[ 0 ] == 1 );
-        CHECK( node_counts[ 1 ] == 2 );
         node_type = header_table.get_node_types( 3 );
         REQUIRE( node_type.size() == 2 );
+        sort_results( { 4 }, ia_array, node_counts, node_type );
+        CHECK( ia_array[ 0 ] == 1 );
+        CHECK( ia_array[ 1 ] == 2 );
+        CHECK( node_counts[ 0 ] == 1 );
+        CHECK( node_counts[ 1 ] == 2 );
         CHECK( node_type[ 0 ] == NodeType::LeafNode );
         CHECK( node_type[ 1 ] == NodeType::LeafNode );
 
         ia_array = header_table.get_ia_array( 4 );
         REQUIRE( ia_array.size() == 3 );
+        node_counts = header_table.get_node_counts( 4 );
+        REQUIRE( node_counts.size() == 3 );
+        node_type = header_table.get_node_types( 4 );
+        REQUIRE( node_type.size() == 3 );
+        sort_results( { 4 }, ia_array, node_counts, node_type );
         CHECK( ia_array[ 0 ] == 1 );
         CHECK( ia_array[ 1 ] == 2 );
         CHECK( ia_array[ 2 ] == 3 );
-        node_counts = header_table.get_node_counts( 4 );
-        REQUIRE( node_counts.size() == 3 );
         CHECK( node_counts[ 0 ] == 1 );
         CHECK( node_counts[ 1 ] == 2 );
         CHECK( node_counts[ 2 ] == 1 );
-        node_type = header_table.get_node_types( 4 );
-        REQUIRE( node_type.size() == 3 );
         CHECK( node_type[ 0 ] == NodeType::LeafNode );
         CHECK( node_type[ 1 ] == NodeType::LeafNode );
         CHECK( node_type[ 2 ] == NodeType::LeafNode );
 
         ia_array = header_table.get_ia_array( 5 );
         REQUIRE( ia_array.size() == 3 );
+        node_counts = header_table.get_node_counts( 5 );
+        REQUIRE( node_counts.size() == 3 );
+        node_type = header_table.get_node_types( 5 );
+        REQUIRE( node_type.size() == 3 );
+        sort_results( { 4 }, ia_array, node_counts, node_type );
         CHECK( ia_array[ 0 ] == 0 );
         CHECK( ia_array[ 1 ] == 2 );
         CHECK( ia_array[ 2 ] == 3 );
-        node_counts = header_table.get_node_counts( 5 );
-        REQUIRE( node_counts.size() == 3 );
         CHECK( node_counts[ 0 ] == 1 );
         CHECK( node_counts[ 1 ] == 2 );
         CHECK( node_counts[ 2 ] == 1 );
-        node_type = header_table.get_node_types( 5 );
-        REQUIRE( node_type.size() == 3 );
         CHECK( node_type[ 0 ] == NodeType::LeafNode );
         CHECK( node_type[ 1 ] == NodeType::LeafNode );
         CHECK( node_type[ 2 ] == NodeType::LeafNode );
@@ -303,6 +338,7 @@ TEST_CASE( "FPHeaderTable correctly functions", "[FPHeaderTable]" ) {
         NodeTypes node_types;
 
         test_sub_header_table( trans_map, radix_tree, header_table, min_support, 0, items, counts, ia_sizes, ia_arrays, node_counts, node_types );
+        sort_results( ia_sizes, ia_arrays, node_counts, node_types );
         REQUIRE( items.size() == 6 );
         CHECK( items[ 0 ] == a );
         CHECK( items[ 1 ] == b );
@@ -326,6 +362,7 @@ TEST_CASE( "FPHeaderTable correctly functions", "[FPHeaderTable]" ) {
         CHECK( ia_sizes[ 5 ] == 0 );
 
         test_sub_header_table( trans_map, radix_tree, header_table, min_support, 1, items, counts, ia_sizes, ia_arrays, node_counts, node_types );
+        sort_results( ia_sizes, ia_arrays, node_counts, node_types );
         REQUIRE( items.size() == 6 );
         CHECK( items[ 0 ] == a );
         CHECK( items[ 1 ] == b );
@@ -347,14 +384,15 @@ TEST_CASE( "FPHeaderTable correctly functions", "[FPHeaderTable]" ) {
         CHECK( ia_sizes[ 3 ] == 0 );
         CHECK( ia_sizes[ 4 ] == 0 );
         CHECK( ia_sizes[ 5 ] == 0 );
-        REQUIRE( ia_arrays.size() == 6 );
+        REQUIRE( ia_arrays.size() == 24 );
         CHECK( ia_arrays[ 0 ] == 2 );
-        REQUIRE( node_counts.size() == 6 );
+        REQUIRE( node_counts.size() == 24 );
         CHECK( node_counts[ 0 ] == 1 );
-        REQUIRE( node_types.size() == 6 );
+        REQUIRE( node_types.size() == 24 );
         CHECK( node_types[ 0 ] == NodeType::InnerNode );
 
         test_sub_header_table( trans_map, radix_tree, header_table, min_support, 2, items, counts, ia_sizes, ia_arrays, node_counts, node_types );
+        sort_results( ia_sizes, ia_arrays, node_counts, node_types );
         REQUIRE( items.size() == 6 );
         CHECK( items[ 0 ] == a );
         CHECK( items[ 1 ] == b );
@@ -376,17 +414,24 @@ TEST_CASE( "FPHeaderTable correctly functions", "[FPHeaderTable]" ) {
         CHECK( ia_sizes[ 3 ] == 0 );
         CHECK( ia_sizes[ 4 ] == 0 );
         CHECK( ia_sizes[ 5 ] == 0 );
-        REQUIRE( ia_arrays.size() == 6 );
+        REQUIRE( ia_arrays.size() == 24 );
         CHECK( ia_arrays[ 0 ] == 2 );
-        CHECK( ia_arrays[ 1 ] == 3 );
-        REQUIRE( node_counts.size() == 6 );
+        CHECK( ia_arrays[ 1 ] == 0 );
+        CHECK( ia_arrays[ 2 ] == 0 );
+        CHECK( ia_arrays[ 3 ] == 0 );
+        CHECK( ia_arrays[ 4 ] == 3 );
+        CHECK( ia_arrays[ 5 ] == 0 );
+        CHECK( ia_arrays[ 6 ] == 0 );
+        CHECK( ia_arrays[ 7 ] == 0 );
+        REQUIRE( node_counts.size() == 24 );
         CHECK( node_counts[ 0 ] == 3 );
-        CHECK( node_counts[ 1 ] == 1 );
-        REQUIRE( node_types.size() == 6 );
+        CHECK( node_counts[ 4 ] == 1 );
+        REQUIRE( node_types.size() == 24 );
         CHECK( node_types[ 0 ] == NodeType::InnerNode );
-        CHECK( node_types[ 1 ] == NodeType::LeafNode );
+        CHECK( node_types[ 4 ] == NodeType::LeafNode );
 
         test_sub_header_table( trans_map, radix_tree, header_table, min_support, 3, items, counts, ia_sizes, ia_arrays, node_counts, node_types );
+        sort_results( ia_sizes, ia_arrays, node_counts, node_types );
         REQUIRE( items.size() == 6 );
         CHECK( items[ 0 ] == a );
         CHECK( items[ 1 ] == b );
@@ -408,20 +453,21 @@ TEST_CASE( "FPHeaderTable correctly functions", "[FPHeaderTable]" ) {
         CHECK( ia_sizes[ 3 ] == 0 );
         CHECK( ia_sizes[ 4 ] == 0 );
         CHECK( ia_sizes[ 5 ] == 0 );
-        REQUIRE( ia_arrays.size() == 6 );
+        REQUIRE( ia_arrays.size() == 24 );
         CHECK( ia_arrays[ 0 ] == 2 );
-        CHECK( ia_arrays[ 1 ] == 1 );
-        CHECK( ia_arrays[ 2 ] == 2 );
-        REQUIRE( node_counts.size() == 6 );
+        CHECK( ia_arrays[ 4 ] == 1 );
+        CHECK( ia_arrays[ 8 ] == 2 );
+        REQUIRE( node_counts.size() == 24 );
         CHECK( node_counts[ 0 ] == 2 );
-        CHECK( node_counts[ 1 ] == 1 );
-        CHECK( node_counts[ 2 ] == 2 );
-        REQUIRE( node_types.size() == 6 );
+        CHECK( node_counts[ 4 ] == 1 );
+        CHECK( node_counts[ 8 ] == 2 );
+        REQUIRE( node_types.size() == 24 );
         CHECK( node_types[ 0 ] == NodeType::InnerNode );
-        CHECK( node_types[ 1 ] == NodeType::InnerNode );
-        CHECK( node_types[ 2 ] == NodeType::LeafNode );
+        CHECK( node_types[ 4 ] == NodeType::InnerNode );
+        CHECK( node_types[ 8 ] == NodeType::LeafNode );
 
         test_sub_header_table( trans_map, radix_tree, header_table, min_support, 4, items, counts, ia_sizes, ia_arrays, node_counts, node_types );
+        sort_results( ia_sizes, ia_arrays, node_counts, node_types );
         REQUIRE( items.size() == 6 );
         CHECK( items[ 0 ] == a );
         CHECK( items[ 1 ] == b );
@@ -443,32 +489,33 @@ TEST_CASE( "FPHeaderTable correctly functions", "[FPHeaderTable]" ) {
         CHECK( ia_sizes[ 3 ] == 2 );
         CHECK( ia_sizes[ 4 ] == 0 );
         CHECK( ia_sizes[ 5 ] == 0 );
-        REQUIRE( ia_arrays.size() == 12 );
+        REQUIRE( ia_arrays.size() == 24 );
         CHECK( ia_arrays[ 0 ] == 2 );
-        CHECK( ia_arrays[ 2 ] == 1 );
-        CHECK( ia_arrays[ 3 ] == 3 );
-        CHECK( ia_arrays[ 4 ] == 2 );
+        CHECK( ia_arrays[ 4 ] == 1 );
         CHECK( ia_arrays[ 5 ] == 3 );
-        CHECK( ia_arrays[ 6 ] == 1 );
-        CHECK( ia_arrays[ 7 ] == 2 );
-        REQUIRE( node_counts.size() == 12 );
+        CHECK( ia_arrays[ 8 ] == 2 );
+        CHECK( ia_arrays[ 9 ] == 3 );
+        CHECK( ia_arrays[ 12 ] == 1 );
+        CHECK( ia_arrays[ 13 ] == 2 );
+        REQUIRE( node_counts.size() == 24 );
         CHECK( node_counts[ 0 ] == 3 );
-        CHECK( node_counts[ 2 ] == 1 );
-        CHECK( node_counts[ 3 ] == 1 );
-        CHECK( node_counts[ 4 ] == 2 );
+        CHECK( node_counts[ 4 ] == 1 );
         CHECK( node_counts[ 5 ] == 1 );
-        CHECK( node_counts[ 6 ] == 1 );
-        CHECK( node_counts[ 7 ] == 2 );
-        REQUIRE( node_types.size() == 12 );
+        CHECK( node_counts[ 8 ] == 2 );
+        CHECK( node_counts[ 9 ] == 1 );
+        CHECK( node_counts[ 12 ] == 1 );
+        CHECK( node_counts[ 13 ] == 2 );
+        REQUIRE( node_types.size() == 24 );
         CHECK( node_types[ 0 ] == NodeType::InnerNode );
-        CHECK( node_types[ 2 ] == NodeType::InnerNode );
-        CHECK( node_types[ 3 ] == NodeType::LeafNode );
-        CHECK( node_types[ 4 ] == NodeType::LeafNode );
+        CHECK( node_types[ 4 ] == NodeType::InnerNode );
         CHECK( node_types[ 5 ] == NodeType::LeafNode );
-        CHECK( node_types[ 6 ] == NodeType::LeafNode );
-        CHECK( node_types[ 7 ] == NodeType::LeafNode );
+        CHECK( node_types[ 8 ] == NodeType::LeafNode );
+        CHECK( node_types[ 9 ] == NodeType::LeafNode );
+        CHECK( node_types[ 12 ] == NodeType::LeafNode );
+        CHECK( node_types[ 13 ] == NodeType::LeafNode );
 
         test_sub_header_table( trans_map, radix_tree, header_table, min_support, 5, items, counts, ia_sizes, ia_arrays, node_counts, node_types );
+        sort_results( ia_sizes, ia_arrays, node_counts, node_types );
         REQUIRE( items.size() == 6 );
         CHECK( items[ 0 ] == a );
         CHECK( items[ 1 ] == b );
@@ -490,33 +537,33 @@ TEST_CASE( "FPHeaderTable correctly functions", "[FPHeaderTable]" ) {
         CHECK( ia_sizes[ 3 ] == 1 );
         CHECK( ia_sizes[ 4 ] == 2 );
         CHECK( ia_sizes[ 5 ] == 0 );
-        REQUIRE( ia_arrays.size() == 12 );
+        REQUIRE( ia_arrays.size() == 24 );
         CHECK( ia_arrays[ 0 ] == 2 );
-        CHECK( ia_arrays[ 2 ] == 1 );
-        CHECK( ia_arrays[ 3 ] == 3 );
-        CHECK( ia_arrays[ 4 ] == 2 );
+        CHECK( ia_arrays[ 4 ] == 1 );
         CHECK( ia_arrays[ 5 ] == 3 );
-        CHECK( ia_arrays[ 6 ] == 2 );
         CHECK( ia_arrays[ 8 ] == 2 );
         CHECK( ia_arrays[ 9 ] == 3 );
-        REQUIRE( node_counts.size() == 12 );
+        CHECK( ia_arrays[ 12 ] == 2 );
+        CHECK( ia_arrays[ 16 ] == 2 );
+        CHECK( ia_arrays[ 17 ] == 3 );
+        REQUIRE( node_counts.size() == 24 );
         CHECK( node_counts[ 0 ] == 3 );
-        CHECK( node_counts[ 2 ] == 1 );
-        CHECK( node_counts[ 3 ] == 1 );
-        CHECK( node_counts[ 4 ] == 2 );
+        CHECK( node_counts[ 4 ] == 1 );
         CHECK( node_counts[ 5 ] == 1 );
-        CHECK( node_counts[ 6 ] == 2 );
         CHECK( node_counts[ 8 ] == 2 );
         CHECK( node_counts[ 9 ] == 1 );
-        REQUIRE( node_types.size() == 12 );
+        CHECK( node_counts[ 12 ] == 2 );
+        CHECK( node_counts[ 16 ] == 2 );
+        CHECK( node_counts[ 17 ] == 1 );
+        REQUIRE( node_types.size() == 24 );
         CHECK( node_types[ 0 ] == NodeType::InnerNode );
-        CHECK( node_types[ 2 ] == NodeType::InnerNode );
-        CHECK( node_types[ 3 ] == NodeType::LeafNode );
-        CHECK( node_types[ 4 ] == NodeType::LeafNode );
+        CHECK( node_types[ 4 ] == NodeType::InnerNode );
         CHECK( node_types[ 5 ] == NodeType::LeafNode );
-        CHECK( node_types[ 6 ] == NodeType::LeafNode );
         CHECK( node_types[ 8 ] == NodeType::LeafNode );
         CHECK( node_types[ 9 ] == NodeType::LeafNode );
+        CHECK( node_types[ 12 ] == NodeType::LeafNode );
+        CHECK( node_types[ 16 ] == NodeType::LeafNode );
+        CHECK( node_types[ 17 ] == NodeType::LeafNode );
     }
 }
 
